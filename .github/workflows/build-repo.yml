@@ -15,7 +15,7 @@ on:
         required: true
 
 env:
-  TURBIE_REPO: TurbieUserRepo-TUR
+  TURBIE_REPO: TurbieUserRepository-TUR
 
 jobs:
   # ── Detect changed packages ──────────────────
