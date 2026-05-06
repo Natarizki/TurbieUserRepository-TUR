@@ -17,7 +17,7 @@
 
 ## What is TUR?
 
-TUR (Turbie User Repository) is the official community package repository for [Turbie Linux](https://github.com/turbie-linux). Think of it like the AUR for Arch Linux, but built specifically for Turbie.
+TUR (Turbie User Repository) is the official community package repository for [Turbie Linux](https://github.com/Natarizki/turbie-linux). Think of it like the AUR for Arch Linux, but built specifically for Turbie.
 
 Anyone can submit packages. Maintainers review and approve them. Once approved, users can install them directly via `tpm-repo`.
 
