@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TUR — Turbie User Repository</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1628;
+    --bg3: #1a2035;
+    --border: #1e2d4a;
+    --cyan: #00d4ff;
+    --purple: #8b5cf6;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --card: #111827;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Nav ── */
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    height: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--cyan);
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--text); }
+  .nav-links { display: flex; gap: 1.5rem; margin-left: auto; }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--cyan); }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #0a0e1a 0%, #1a1040 50%, #0a0e1a 100%);
+    padding: 4rem 2rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 1rem;
+  }
+  .hero p { color: var(--muted); font-size: 1.1rem; margin-bottom: 2rem; }
+  .stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--cyan);
+  }
+  .stat-label { color: var(--muted); font-size: 0.85rem; }
+
+  /* ── Main ── */
+  main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+  /* ── Search + Filters ── */
+  .search-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.75rem 1rem;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--cyan); }
+  .search-input::placeholder { color: var(--muted); }
+  select {
+    padding: 0.75rem 1rem;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+  }
+  select:focus { border-color: var(--cyan); }
+
+  /* ── Package Grid ── */
+  .pkg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+  }
+
+  .pkg-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .pkg-card:hover {
+    border-color: var(--cyan);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
+  }
+
+  .pkg-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+  .pkg-name { font-weight: 700; font-size: 1rem; color: var(--cyan); }
+  .pkg-version { font-size: 0.75rem; color: var(--muted); background: var(--bg3); padding: 2px 8px; border-radius: 4px; }
+  .pkg-desc { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; line-height: 1.4; }
+
+  .pkg-footer { display: flex; justify-content: space-between; align-items: center; }
+  .pkg-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .tag {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .tag-approved { background: rgba(16,185,129,0.15); color: var(--green); }
+  .tag-pending  { background: rgba(245,158,11,0.15);  color: var(--yellow); }
+  .tag-rejected { background: rgba(239,68,68,0.15);   color: var(--red); }
+  .tag-arch { background: rgba(139,92,246,0.15); color: var(--purple); }
+  .tag-deb  { background: rgba(0,212,255,0.1);   color: var(--cyan); }
+
+  .vote-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .vote-btn:hover { border-color: var(--purple); color: var(--purple); }
+  .vote-btn.voted { border-color: var(--purple); color: var(--purple); background: rgba(139,92,246,0.1); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.active { display: flex; align-items: center; justify-content: center; padding: 2rem; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal h2 { color: var(--cyan); margin-bottom: 1rem; font-size: 1.5rem; }
+  .modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+  .info-row { display: flex; gap: 1rem; margin-bottom: 0.5rem; font-size: 0.9rem; }
+  .info-label { color: var(--muted); min-width: 100px; }
+  .info-val { color: var(--text); }
+  .install-cmd {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    font-family: monospace;
+    font-size: 0.9rem;
+    color: var(--cyan);
+    position: relative;
+  }
+  .copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .copy-btn:hover { color: var(--cyan); }
+
+  /* ── Submit form ── */
+  .submit-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-top: 3rem;
+  }
+  .submit-section h2 { color: var(--cyan); margin-bottom: 0.5rem; }
+  .submit-section p { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .btn-primary { background: var(--cyan); color: #000; }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-outline { background: transparent; color: var(--cyan); border: 1px solid var(--cyan); }
+  .btn-outline:hover { background: rgba(0,212,255,0.1); }
+
+  /* ── Loading ── */
+  .loading { text-align: center; padding: 4rem; color: var(--muted); }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--cyan);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 4rem; color: var(--muted); }
+  .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 2rem; }
+    .stats-row { gap: 1.5rem; }
+    .pkg-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/">
+    <svg width="28" height="28" viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#00d4ff"/>
+          <stop offset="100%" style="stop-color:#8b5cf6"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="45" fill="url(#g)" opacity="0.2" stroke="url(#g)" stroke-width="2"/>
+      <text x="50" y="65" text-anchor="middle" font-size="40" font-weight="bold" fill="url(#g)">T</text>
+    </svg>
+    TUR <span>— Turbie User Repository</span>
+  </a>
+  <div class="nav-links">
+    <a href="#packages">Packages</a>
+    <a href="#submit">Submit</a>
+    <a href="https://github.com/turbie-linux/TUR" target="_blank">GitHub</a>
+    <a href="https://docs.turbie.org" target="_blank">Docs</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <h1>Turbie User Repository</h1>
+  <p>Community-driven packages for Turbie Linux. Submit, review, and install packages.</p>
+  <div class="stats-row" id="stats">
+    <div class="stat"><div class="stat-num" id="stat-total">—</div><div class="stat-label">Total Packages</div></div>
+    <div class="stat"><div class="stat-num" id="stat-approved">—</div><div class="stat-label">Approved</div></div>
+    <div class="stat"><div class="stat-num" id="stat-pending">—</div><div class="stat-label">Pending Review</div></div>
+  </div>
+</div>
+
+<main>
+  <div id="packages">
+    <div class="search-bar">
+      <input class="search-input" type="text" id="search"
+        placeholder="Search packages..." oninput="filterPackages()">
+      <select id="filter-status" onchange="filterPackages()">
+        <option value="all">All Status</option>
+        <option value="approved">Approved</option>
+        <option value="pending">Pending</option>
+      </select>
+      <select id="sort-by" onchange="filterPackages()">
+        <option value="name">Sort: Name</option>
+        <option value="votes">Sort: Votes</option>
+        <option value="updated">Sort: Recent</option>
+      </select>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      Loading packages...
+    </div>
+
+    <div class="pkg-grid" id="pkg-grid" style="display:none"></div>
+
+    <div class="empty" id="empty" style="display:none">
+      <div class="empty-icon">📦</div>
+      <p>No packages found.</p>
+    </div>
+  </div>
+
+  <!-- Submit section -->
+  <div class="submit-section" id="submit">
+    <h2>📤 Submit a Package</h2>
+    <p>Have a package you want to share with the Turbie community? Submit a TURBUILD file via GitHub Pull Request. Maintainers will review and approve it.</p>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap">
+      <a class="btn btn-primary" href="https://github.com/turbie-linux/TUR/fork" target="_blank">
+        🍴 Fork & Submit
+      </a>
+      <a class="btn btn-outline" href="https://github.com/turbie-linux/TUR/blob/main/CONTRIBUTING.md" target="_blank">
+        📖 Contribution Guide
+      </a>
+    </div>
+  </div>
+</main>
+
+<!-- Package detail modal -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" id="modal-content">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modal-name"></h2>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+let allPackages = [];
+let voted = JSON.parse(localStorage.getItem('tur-voted') || '{}');
+
+// ── Load TUR.json ──────────────────────────────
+async function loadPackages() {
+  try {
+    const r = await fetch('/TUR.json');
+    const db = await r.json();
+
+    // Stats
+    document.getElementById('stat-total').textContent = db.stats?.total ?? 0;
+    document.getElementById('stat-approved').textContent = db.stats?.approved ?? 0;
+    document.getElementById('stat-pending').textContent = db.stats?.pending ?? 0;
+
+    allPackages = Object.values(db.packages || {});
+    renderPackages(allPackages);
+  } catch(e) {
+    document.getElementById('loading').innerHTML =
+      '<div class="empty-icon">⚠️</div><p>Failed to load packages. <a href="https://github.com/turbie-linux/TUR" style="color:var(--cyan)">View on GitHub</a></p>';
+  }
+}
+
+// ── Render ─────────────────────────────────────
+function renderPackages(pkgs) {
+  const grid = document.getElementById('pkg-grid');
+  const loading = document.getElementById('loading');
+  const empty = document.getElementById('empty');
+
+  loading.style.display = 'none';
+
+  if (!pkgs.length) {
+    grid.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  empty.style.display = 'none';
+  grid.style.display = 'grid';
+  grid.innerHTML = pkgs.map(pkg => pkgCard(pkg)).join('');
+}
+
+function pkgCard(pkg) {
+  const statusClass = `tag-${pkg.status || 'pending'}`;
+  const archs = Object.keys(pkg.binaries || {});
+  const isVoted = voted[pkg.name];
+  const buildType = pkg.build_type === 'deb' ? '<span class="tag tag-deb">Debian</span>' : '';
+
+  return `
+  <div class="pkg-card" onclick="showPackage('${pkg.name}')">
+    <div class="pkg-header">
+      <span class="pkg-name">${pkg.name}</span>
+      <span class="pkg-version">${pkg.version || '?'}</span>
+    </div>
+    <div class="pkg-desc">${(pkg.description || '').substring(0, 100)}${pkg.description?.length > 100 ? '...' : ''}</div>
+    <div class="pkg-footer">
+      <div class="pkg-tags">
+        <span class="tag ${statusClass}">${pkg.status || 'pending'}</span>
+        ${archs.map(a => `<span class="tag tag-arch">${a}</span>`).join('')}
+        ${buildType}
+      </div>
+      <button class="vote-btn ${isVoted ? 'voted' : ''}"
+        onclick="event.stopPropagation(); vote('${pkg.name}')">
+        ▲ ${pkg.votes || 0}
+      </button>
+    </div>
+  </div>`;
+}
+
+// ── Filter + Sort ──────────────────────────────
+function filterPackages() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const status = document.getElementById('filter-status').value;
+  const sort = document.getElementById('sort-by').value;
+
+  let filtered = allPackages.filter(p => {
+    const matchQ = !q ||
+      p.name?.toLowerCase().includes(q) ||
+      p.description?.toLowerCase().includes(q) ||
+      p.maintainer?.toLowerCase().includes(q);
+    const matchS = status === 'all' || p.status === status;
+    return matchQ && matchS;
+  });
+
+  filtered.sort((a, b) => {
+    if (sort === 'votes')   return (b.votes || 0) - (a.votes || 0);
+    if (sort === 'updated') return (b.updated || '').localeCompare(a.updated || '');
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  renderPackages(filtered);
+}
+
+// ── Package detail modal ───────────────────────
+function showPackage(name) {
+  const pkg = allPackages.find(p => p.name === name);
+  if (!pkg) return;
+
+  const archs = Object.keys(pkg.binaries || {});
+  const deps = Array.isArray(pkg.depends) ? pkg.depends.join(', ') : (pkg.depends || 'none');
+
+  document.getElementById('modal-name').textContent = `${pkg.name} ${pkg.version}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="info-row"><span class="info-label">Description</span><span class="info-val">${pkg.description || '—'}</span></div>
+    <div class="info-row"><span class="info-label">Version</span><span class="info-val">${pkg.version || '—'}</span></div>
+    <div class="info-row"><span class="info-label">Status</span><span class="info-val tag tag-${pkg.status}">${pkg.status}</span></div>
+    <div class="info-row"><span class="info-label">License</span><span class="info-val">${pkg.license || '—'}</span></div>
+    <div class="info-row"><span class="info-label">Maintainer</span><span class="info-val">${pkg.maintainer || '—'}</span></div>
+    <div class="info-row"><span class="info-label">Depends</span><span class="info-val">${deps}</span></div>
+    <div class="info-row"><span class="info-label">Arch</span><span class="info-val">${archs.join(', ') || 'any'}</span></div>
+    <div class="info-row"><span class="info-label">Votes</span><span class="info-val">▲ ${pkg.votes || 0}</span></div>
+    ${pkg.homepage ? `<div class="info-row"><span class="info-label">Homepage</span><span class="info-val"><a href="${pkg.homepage}" target="_blank" style="color:var(--cyan)">${pkg.homepage}</a></span></div>` : ''}
+
+    <div class="install-cmd">
+      tpm-repo install ${pkg.name}
+      <button class="copy-btn" onclick="copyCmd('tpm-repo install ${pkg.name}')">Copy</button>
+    </div>
+
+    <div style="display:flex;gap:1rem;flex-wrap:wrap">
+      <a class="btn btn-outline" href="https://github.com/turbie-linux/TUR/tree/main/packages/${pkg.name}" target="_blank">
+        📁 View TURBUILD
+      </a>
+      <button class="btn btn-outline" onclick="vote('${pkg.name}')">
+        ▲ Vote (${pkg.votes || 0})
+      </button>
+    </div>
+  `;
+
+  document.getElementById('modal').classList.add('active');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('active');
+  }
+}
+
+function copyCmd(cmd) {
+  navigator.clipboard.writeText(cmd);
+}
+
+// ── Vote (local, GitHub login required for real vote) ──
+function vote(name) {
+  if (voted[name]) {
+    delete voted[name];
+    const pkg = allPackages.find(p => p.name === name);
+    if (pkg) pkg.votes = Math.max(0, (pkg.votes || 1) - 1);
+  } else {
+    voted[name] = true;
+    const pkg = allPackages.find(p => p.name === name);
+    if (pkg) pkg.votes = (pkg.votes || 0) + 1;
+  }
+  localStorage.setItem('tur-voted', JSON.stringify(voted));
+  filterPackages();
+}
+
+// ── Keyboard ──────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === '/' && document.activeElement !== document.getElementById('search')) {
+    e.preventDefault();
+    document.getElementById('search').focus();
+  }
+});
+
+loadPackages();
+</script>
+</body>
+</html>

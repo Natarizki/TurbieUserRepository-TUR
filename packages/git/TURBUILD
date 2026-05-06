@@ -1,0 +1,43 @@
+# TURBUILD — Turbie User Repository
+# Package: git
+
+[meta]
+name        = git
+version     = 2.43.0
+release     = 1
+arch        = aarch64,x86_64
+description = Fast, scalable, distributed version control system
+license     = GPL-2.0
+url         = https://git-scm.com
+maintainer  = turbie-team
+build_type  = deb
+deb_name    = git
+
+[deps]
+depends     = libc,libcurl,libssl,zlib
+makedepends = gcc,make,autoconf
+
+[source]
+url         = https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.43.0.tar.xz
+sha256      = PUT_SHA256_HERE
+binary_url  = https://github.com/turbie-linux/TUR/releases/download/pkgs/git-2.43.0-aarch64.tpkg
+binary_sha256 = PUT_SHA256_HERE
+
+[build]
+configure() {
+  ./configure \
+    --prefix=/usr \
+    --with-curl \
+    --with-openssl \
+    --without-tcltk
+}
+
+compile() {
+  make -j$(nproc) all
+}
+
+package() {
+  make DESTDIR="$PKGDIR" install
+  # Strip binaries
+  find "$PKGDIR" -type f -executable | xargs strip --strip-unneeded 2>/dev/null || true
+}

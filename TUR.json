@@ -1,0 +1,18 @@
+{
+  "meta": {
+    "name": "Turbie User Repository",
+    "short": "TUR",
+    "version": "1",
+    "description": "Community package repository for Turbie Linux",
+    "url": "https://tur.turbie.org",
+    "maintainers": ["turbie-team"],
+    "updated": "2026-01-01T00:00:00Z"
+  },
+  "stats": {
+    "total": 0,
+    "approved": 0,
+    "pending": 0,
+    "rejected": 0
+  },
+  "packages": {}
+}

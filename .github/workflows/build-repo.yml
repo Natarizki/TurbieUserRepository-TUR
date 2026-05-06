@@ -1,0 +1,220 @@
+name: TUR Auto-Build
+# Triggers on PR merge to main (new/updated package submissions)
+# Primary: GitHub Actions | Fallback: self-hosted runner
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - 'packages/**'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package name to rebuild'
+        required: true
+
+env:
+  TURBIE_REPO: turbie-linux/TUR
+
+jobs:
+  # ── Detect changed packages ──────────────────
+  detect-changes:
+    name: Detect Changed Packages
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+    outputs:
+      packages: ${{ steps.detect.outputs.packages }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed packages
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PKG="${{ github.event.inputs.package }}"
+            echo "packages=$PKG" >> $GITHUB_OUTPUT
+            echo "matrix={\"include\":[{\"package\":\"$PKG\",\"arch\":\"amd64\"},{\"package\":\"$PKG\",\"arch\":\"arm64\"}]}" >> $GITHUB_OUTPUT
+          else
+            # Get changed TURBUILD files from PR
+            CHANGED=$(git diff --name-only HEAD~1 HEAD \
+              | grep "^packages/.*/TURBUILD$" \
+              | sed 's|packages/||;s|/TURBUILD||' \
+              | tr '\n' ' ')
+            echo "packages=$CHANGED" >> $GITHUB_OUTPUT
+
+            # Build matrix for all changed packages × archs
+            MATRIX=$(python3 -c "
+import json, sys
+pkgs = '$CHANGED'.split()
+matrix = {'include': []}
+for pkg in pkgs:
+    for arch in ['amd64', 'arm64']:
+        matrix['include'].append({'package': pkg, 'arch': arch})
+print(json.dumps(matrix))
+")
+            echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          fi
+
+  # ── Build packages ───────────────────────────
+  build:
+    name: Build ${{ matrix.package }} (${{ matrix.arch }})
+    needs: detect-changes
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-latest' || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup QEMU (for arm64 cross-build)
+        if: matrix.arch == 'arm64'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Setup build environment
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            debootstrap qemu-user-static \
+            dpkg-dev devscripts \
+            python3 python3-pip \
+            zstd tar curl wget git \
+            build-essential autoconf automake \
+            cmake ninja-build pkg-config
+
+      - name: Parse TURBUILD
+        id: parse
+        run: |
+          TURBUILD="packages/${{ matrix.package }}/TURBUILD"
+          [ -f "$TURBUILD" ] || { echo "TURBUILD not found!"; exit 1; }
+
+          # Parse key fields
+          NAME=$(grep "^name" "$TURBUILD" | cut -d= -f2 | xargs)
+          VERSION=$(grep "^version" "$TURBUILD" | cut -d= -f2 | xargs)
+          SOURCE_URL=$(grep "^url" "$TURBUILD" | head -1 | cut -d= -f2 | xargs)
+          DEB_NAME=$(grep "^deb_name" "$TURBUILD" | cut -d= -f2 | xargs || echo "$NAME")
+          BUILD_TYPE=$(grep "^build_type" "$TURBUILD" | cut -d= -f2 | xargs || echo "source")
+
+          echo "name=$NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "source_url=$SOURCE_URL" >> $GITHUB_OUTPUT
+          echo "deb_name=$DEB_NAME" >> $GITHUB_OUTPUT
+          echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+
+      - name: Build from Debian .deb (fast path)
+        if: steps.parse.outputs.build_type == 'deb'
+        run: |
+          bash scripts/deb-to-tpkg.sh \
+            "${{ steps.parse.outputs.deb_name }}" \
+            "${{ matrix.arch }}" \
+            "packages/${{ matrix.package }}"
+
+      - name: Build from source (TURBUILD)
+        if: steps.parse.outputs.build_type == 'source'
+        run: |
+          bash scripts/build-source.sh \
+            "packages/${{ matrix.package }}/TURBUILD" \
+            "${{ matrix.arch }}"
+
+      - name: Verify .tpkg
+        run: |
+          TPKG="packages/${{ matrix.package }}/${{ steps.parse.outputs.name }}-${{ steps.parse.outputs.version }}-${{ matrix.arch }}.tpkg"
+          [ -f "$TPKG" ] || { echo "Build failed — .tpkg not created!"; exit 1; }
+          echo "✓ Build successful: $(du -sh $TPKG | cut -f1)"
+          tar -tzf "$TPKG" | head -10
+
+      - name: Generate SHA256
+        run: |
+          PKG="${{ matrix.package }}"
+          VERSION="${{ steps.parse.outputs.version }}"
+          ARCH="${{ matrix.arch }}"
+          TPKG="packages/${PKG}/${PKG}-${VERSION}-${ARCH}.tpkg"
+          sha256sum "$TPKG" > "${TPKG}.sha256"
+          echo "SHA256: $(cat ${TPKG}.sha256)"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tpkg-${{ matrix.package }}-${{ matrix.arch }}
+          path: packages/${{ matrix.package }}/*.tpkg*
+          retention-days: 30
+
+  # ── Update TUR.json index ────────────────────
+  update-index:
+    name: Update TUR Index
+    needs: [detect-changes, build]
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result != 'cancelled'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Move artifacts to packages/
+        run: |
+          for dir in artifacts/tpkg-*/; do
+            pkg=$(basename "$dir" | sed 's/tpkg-//' | rev | cut -d- -f2- | rev)
+            arch=$(basename "$dir" | rev | cut -d- -f1 | rev)
+            mkdir -p "packages/$pkg"
+            cp -f "$dir"/*.tpkg* "packages/$pkg/" 2>/dev/null || true
+          done
+
+      - name: Regenerate TUR.json
+        run: |
+          python3 scripts/gen-index.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "turbie-bot"
+          git config user.email "bot@turbie.org"
+          git add packages/ TUR.json
+          git diff --staged --quiet || \
+            git commit -m "🤖 Auto-build: update packages and index [skip ci]"
+          git push
+
+  # ── Deploy website ───────────────────────────
+  deploy-website:
+    name: Deploy TUR Website
+    needs: update-index
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: website/package.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Inject TUR.json into build
+        run: cp TUR.json website/public/TUR.json
+
+      - name: Build website
+        working-directory: website
+        run: npm run build
+        env:
+          VITE_TUR_API: https://tur.turbie.org
+
+      - name: Deploy to Netlify
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --prod --dir=website/dist
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}

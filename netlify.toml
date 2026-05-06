@@ -1,0 +1,27 @@
+[build]
+  base    = "website"
+  publish = "."
+  command = "echo 'Static site — no build needed'"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/TUR.json"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=300"
+
+[[redirects]]
+  from = "/api/packages"
+  to   = "/TUR.json"
+  status = 200
+
+[[redirects]]
+  from = "/pkg/:name"
+  to   = "/index.html"
+  status = 200
